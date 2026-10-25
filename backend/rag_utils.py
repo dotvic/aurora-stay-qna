@@ -1,14 +1,19 @@
 from langchain_openai import ChatOpenAI
 import os
 
-def retrieve(query: str, k: int = 2, vectorstore=None) -> list[str]:
+# Retrieve the top-k relevant chunks from the vector store
+def retrieve(query: str, k: int = 2,vectorstore=None) -> list[str]:
     results = vectorstore.similarity_search(query, k=k)
+
+    # Return each chunk with its content and metadata
     return [
         f"Content:\n{r.page_content}\n\nMetadata:\n{r.metadata}"
         for r in results
     ]
 
+# Define the generation function that prompts the LLM with retrieved context
 def generate(query, retrieved_chunks, model) -> str:
+
     prompt = f"""
     You are an AI assistant answering questions about hotel operations and policies for AuroraStay Hotels.
 
@@ -34,9 +39,20 @@ def generate(query, retrieved_chunks, model) -> str:
 
     Answer:
     """
+
     return model.invoke(prompt)
 
-def rag(query: str, k: int = 2, model_name: str = "gpt-4o-mini", temperature: float = 0.0, top_p: float = 1.0, max_tokens: int = 512, vectorstore=None):
+# Define the full RAG pipeline combining retrieval and generation
+def rag(
+    query: str,
+    k: int = 2,
+    model_name: str = "gpt-4o-mini",
+    temperature: float = 0.0,
+    top_p: float = 1.0,
+    max_tokens: int = 512, # Ensured backend also runs with appropriate tokens
+    vectorstore=None
+):
+    # Create the generator model
     model = ChatOpenAI(
         model=model_name,
         temperature=temperature,
@@ -45,6 +61,15 @@ def rag(query: str, k: int = 2, model_name: str = "gpt-4o-mini", temperature: fl
         openai_api_key=os.getenv('OPENAI_API_KEY'),
         openai_api_base=os.getenv('OPENAI_API_BASE')
     )
-    retrieved_chunks = retrieve(query=query, k=k, vectorstore=vectorstore)
-    answer = generate(query=query, retrieved_chunks=retrieved_chunks, model=model)
+
+    # Retrieve relevant chunks
+    retrieved_chunks = retrieve(query=query, k=k,vectorstore=vectorstore)
+
+    # Generate answer using retrieved chunks
+    answer = generate(
+        query=query,
+        retrieved_chunks=retrieved_chunks,
+        model=model
+    )
+
     return answer.content, retrieved_chunks
